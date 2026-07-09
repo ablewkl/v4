@@ -1,0 +1,1043 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>V4 ETF 策略面板</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f1e8;
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-soft: #fbf5ee;
+      --line: rgba(121, 91, 62, 0.14);
+      --text: #2f241b;
+      --muted: #77685b;
+      --accent: #b65e38;
+      --accent-strong: #8d4121;
+      --danger: #c2410c;
+      --warn: #a16207;
+      --shadow: 0 20px 56px rgba(109, 79, 50, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(246, 223, 210, 0.95), transparent 28%),
+        radial-gradient(circle at top right, rgba(246, 238, 221, 0.95), transparent 26%),
+        linear-gradient(180deg, #fffaf5 0%, #f6f1e8 100%);
+      color: var(--text);
+      font-family: "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    body.loading,
+    body.auth-locked {
+      overflow: hidden;
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 28px));
+      margin: 28px auto 40px;
+      display: grid;
+      gap: 18px;
+    }
+
+    body.loading .shell,
+    body.auth-locked .shell {
+      pointer-events: none;
+      user-select: none;
+      filter: saturate(.94);
+    }
+
+    .hero,
+    .panel,
+    .summary-card,
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero,
+    .panel {
+      padding: 22px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero-kicker {
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .hero h1 {
+      margin: 6px 0 0;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.04;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.75;
+      max-width: 780px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    input,
+    button {
+      border: 0;
+      outline: none;
+      font: inherit;
+    }
+
+    .field,
+    .password-input {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      color: var(--text);
+    }
+
+    .btn {
+      height: 46px;
+      padding: 0 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #d77b4f);
+      color: #fff8f3;
+      box-shadow: 0 12px 30px rgba(182, 94, 56, 0.22);
+    }
+
+    .btn-warn {
+      background: #fff7eb;
+      color: var(--warn);
+      border: 1px solid rgba(161, 98, 7, 0.15);
+    }
+
+    .status {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-card {
+      padding: 18px;
+      display: grid;
+      gap: 10px;
+      min-height: 132px;
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .summary-value {
+      font-size: 24px;
+      line-height: 1.18;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      word-break: break-word;
+    }
+
+    .summary-copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.72;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .panel-head h2,
+    .section h3 {
+      margin: 0;
+    }
+
+    .panel-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.72;
+    }
+
+    .sizing-list,
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      margin-top: 18px;
+    }
+
+    .section {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .section.wide {
+      grid-column: 1 / -1;
+    }
+
+    .line,
+    .empty {
+      font-size: 13px;
+      line-height: 1.72;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .line.mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      color: #423327;
+    }
+
+    .empty {
+      color: var(--muted);
+    }
+
+    .sizing-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 6px;
+    }
+
+    .sizing-title {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .sizing-meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.72;
+    }
+
+    .loading-overlay,
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(4px);
+      transition: opacity .18s ease;
+    }
+
+    .loading-overlay {
+      background: rgba(35, 24, 16, 0.24);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    body.loading .loading-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .auth-overlay {
+      background: rgba(35, 24, 16, 0.36);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    body.auth-locked .auth-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .overlay-card {
+      width: min(380px, calc(100vw - 32px));
+      padding: 20px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: var(--shadow);
+    }
+
+    .overlay-title {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .overlay-copy {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .overlay-form {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .auth-error {
+      min-height: 18px;
+      font-size: 12px;
+      color: var(--danger);
+      margin-top: 8px;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      border: 3px solid rgba(121, 91, 62, 0.14);
+      border-top-color: var(--accent);
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (min-width: 760px) {
+      .control-row {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body class="auth-locked">
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="hero-kicker">V4 Standalone</div>
+        <h1>V4 ETF 策略面板</h1>
+        <p>策略结果只缓存在当前浏览器，后端不做缓存。前后端同域部署时可直接访问；如果前端和后端分开部署，可以通过 URL 参数 `?apiBase=后端地址` 指定接口根地址。</p>
+      </div>
+      <div class="controls">
+        <div class="control-row">
+          <input id="capitalInput" class="field" type="text" inputmode="decimal" placeholder="当前金额，例如 20000" />
+          <button id="amountConfirmBtn" class="btn btn-primary">确认金额</button>
+          <button id="btnRefresh" class="btn btn-warn">获取最新数据</button>
+        </div>
+        <div id="status" class="status">请输入口令后读取前端缓存</div>
+        <div id="badges" class="badges"></div>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <article class="summary-card">
+        <div class="summary-label">最新交易日</div>
+        <div id="summaryLatestTrade" class="summary-value">未加载</div>
+        <div class="summary-copy">页面会优先读取当前浏览器里的 V4 缓存结果。</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">统计概览</div>
+        <div id="summaryStats" class="summary-value">未加载</div>
+        <div class="summary-copy">展示最近一段回测统计、总收益、最大回撤和胜率。</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">最新卖出账户收益</div>
+        <div id="summaryAccount" class="summary-value">未加载</div>
+        <div class="summary-copy">这里会显示最近一次卖出对应的账户收益和实际卖出日期。</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>买入数量估算</h2>
+        <div class="panel-note">确认金额后，会按 V4 最新买入计划里的买入价估算建议份数，并补充最近拆分提示。</div>
+      </div>
+      <div id="sizingList" class="sizing-list">
+        <div class="empty">请先获取策略结果。</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>策略明细</h2>
+        <div id="panelNote" class="panel-note">当前会展示页面结果、买入计划、持仓、待卖出持仓、排行、最近命中和最近卖出明细。</div>
+      </div>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+
+  <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+    <div class="overlay-card" role="status" aria-live="polite">
+      <div class="spinner"></div>
+      <div id="loadingTitle" class="overlay-title">请求中</div>
+      <div id="loadingSubtitle" class="overlay-copy">正在获取最新 V4 结果</div>
+    </div>
+  </div>
+
+  <div id="authOverlay" class="auth-overlay" aria-hidden="false">
+    <div class="overlay-card">
+      <div class="overlay-title">输入访问口令</div>
+      <div class="overlay-copy">口令只保存在当前页面内存里，不写入本地存储。</div>
+      <div class="overlay-form">
+        <input id="passwordModalInput" class="password-input" type="password" inputmode="numeric" placeholder="输入访问口令" />
+        <button id="passwordSubmitBtn" class="btn btn-primary">进入页面</button>
+      </div>
+      <div id="authError" class="auth-error"></div>
+    </div>
+  </div>
+
+  <script>
+    const pageParams = new URLSearchParams(window.location.search);
+    const DEFAULT_BASE_URL = pageParams.get("apiBase") || "";
+    const baseUrl = DEFAULT_BASE_URL.replace(/\/+$/, "");
+
+    const capitalInput = document.getElementById("capitalInput");
+    const amountConfirmBtn = document.getElementById("amountConfirmBtn");
+    const btnRefresh = document.getElementById("btnRefresh");
+    const statusEl = document.getElementById("status");
+    const badgesEl = document.getElementById("badges");
+    const summaryLatestTradeEl = document.getElementById("summaryLatestTrade");
+    const summaryStatsEl = document.getElementById("summaryStats");
+    const summaryAccountEl = document.getElementById("summaryAccount");
+    const sizingListEl = document.getElementById("sizingList");
+    const gridEl = document.getElementById("grid");
+    const panelNoteEl = document.getElementById("panelNote");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingTitle = document.getElementById("loadingTitle");
+    const loadingSubtitle = document.getElementById("loadingSubtitle");
+    const authOverlay = document.getElementById("authOverlay");
+    const passwordModalInput = document.getElementById("passwordModalInput");
+    const passwordSubmitBtn = document.getElementById("passwordSubmitBtn");
+    const authErrorEl = document.getElementById("authError");
+
+    const AMOUNT_STORAGE_KEY = "etf_strategy_v4_amount_v1";
+    const STRATEGY_STORAGE_KEY = "etf_strategy_v4_payload_v1";
+
+    const HEADING_MAP = {
+      "最近命中明细:": "hits",
+      "最近卖出明细:": "sells",
+      "最新交易日score排行:": "ranking",
+      "最新V4买入计划:": "buyPlan",
+      "当前待结算持仓:": "holds",
+      "最新交易日已触发、待下一交易日开盘卖出的持仓:": "pendingSells"
+    };
+
+    const SECTION_LABELS = {
+      summary: "页面结果",
+      buyPlan: "最新V4买入计划",
+      holds: "当前待结算持仓",
+      pendingSells: "待下一交易日开盘卖出持仓",
+      ranking: "最新交易日score排行",
+      hits: "最近命中明细",
+      sells: "最近卖出明细"
+    };
+
+    const SECTION_ORDER = ["summary", "buyPlan", "holds", "pendingSells", "ranking", "hits", "sells"];
+    const WIDE_SECTIONS = new Set(["summary", "pendingSells", "ranking", "hits", "sells"]);
+
+    let currentPassword = "";
+    let currentPayload = null;
+    let currentParsed = null;
+    let currentSplitMap = {};
+    let currentSplitRequestId = 0;
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function splitLines(text) {
+      return String(text || "").split(/\r?\n/).map(line => line.trimEnd());
+    }
+
+    function safeStorageGet(key) {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+
+    function safeStorageSet(key, value) {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+
+    function safeStorageRemove(key) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function setLoading(active, title = "请求中", subtitle = "正在获取最新 V4 结果") {
+      document.body.classList.toggle("loading", active);
+      loadingOverlay.setAttribute("aria-hidden", active ? "false" : "true");
+      loadingTitle.textContent = title;
+      loadingSubtitle.textContent = subtitle;
+    }
+
+    function setAuthLocked(locked, message = "") {
+      document.body.classList.toggle("auth-locked", locked);
+      authOverlay.setAttribute("aria-hidden", locked ? "false" : "true");
+      authErrorEl.textContent = message;
+      if (locked) {
+        window.setTimeout(() => passwordModalInput.focus(), 30);
+      }
+    }
+
+    function resultSource(payload) {
+      if (!payload) return "-";
+      if (payload.front_cached) return "前端缓存";
+      if (payload.refreshed) return "最新数据";
+      return "策略结果";
+    }
+
+    function isPayloadStructurallyValid(payload) {
+      if (!payload || typeof payload.text !== "string") return false;
+      const text = payload.text;
+      return (
+        text.includes("最新交易日score排行:")
+        && text.includes("最新V4买入计划:")
+        && text.includes("当前待结算持仓:")
+      );
+    }
+
+    function saveStrategyCache(payload) {
+      if (!isPayloadStructurallyValid(payload)) {
+        throw new Error("V4 返回的数据不完整");
+      }
+      safeStorageSet(STRATEGY_STORAGE_KEY, JSON.stringify(payload));
+      currentPayload = { ...payload, front_cached: false };
+      return currentPayload;
+    }
+
+    function loadStrategyCache() {
+      try {
+        const raw = safeStorageGet(STRATEGY_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!isPayloadStructurallyValid(parsed)) {
+          throw new Error("invalid cache");
+        }
+        currentPayload = { ...parsed, front_cached: true };
+        return currentPayload;
+      } catch {
+        safeStorageRemove(STRATEGY_STORAGE_KEY);
+        currentPayload = null;
+        return null;
+      }
+    }
+
+    function clearCurrentPayload() {
+      currentPayload = null;
+      currentParsed = null;
+      currentSplitMap = {};
+      currentSplitRequestId += 1;
+    }
+
+    function isHeading(line) {
+      return Object.prototype.hasOwnProperty.call(HEADING_MAP, line.trim());
+    }
+
+    function normalizeHeading(line) {
+      return HEADING_MAP[line.trim()] || "";
+    }
+
+    function extractSummary(lines, payload) {
+      const summary = {
+        title: lines[0] || "",
+        latestTrade: "",
+        scoreFormula: "",
+        stats: "",
+        latestAccount: "",
+        yearlyTitle: "",
+        yearlyLines: []
+      };
+
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i].trim();
+        if (!summary.latestTrade && line.startsWith("最新交易日:")) {
+          summary.latestTrade = line;
+          continue;
+        }
+        if (!summary.scoreFormula && line.startsWith("score公式:")) {
+          summary.scoreFormula = line;
+          continue;
+        }
+        if (!summary.stats && /^近\d+个交易日统计:/.test(line)) {
+          summary.stats = line;
+          continue;
+        }
+        if (!summary.latestAccount && line.includes("最新一次卖出账户收益")) {
+          summary.latestAccount = line;
+          continue;
+        }
+        if (!summary.yearlyTitle && line.includes("月度卖出收益")) {
+          summary.yearlyTitle = line;
+          const yearlyLines = [];
+          for (let j = i + 1; j < lines.length; j += 1) {
+            const next = lines[j].trim();
+            if (!next || isHeading(next)) break;
+            yearlyLines.push(next);
+          }
+          summary.yearlyLines = yearlyLines;
+        }
+      }
+
+      return {
+        summary,
+        resultLines: [
+          summary.latestTrade || "最新交易日: -",
+          summary.scoreFormula || "score公式: -",
+          `最后缓存时间: ${payload.cached_at || "-"}`,
+          `结果来源: ${resultSource(payload)}`,
+          ...(summary.stats ? [summary.stats] : []),
+          ...(summary.latestAccount ? [summary.latestAccount] : []),
+          ...(summary.yearlyTitle ? [summary.yearlyTitle] : []),
+          ...summary.yearlyLines
+        ]
+      };
+    }
+
+    function parseSections(lines, summaryInfo) {
+      const sections = {
+        hits: [],
+        sells: [],
+        ranking: [],
+        buyPlan: [],
+        holds: [],
+        pendingSells: []
+      };
+
+      const excluded = new Set();
+      if (summaryInfo.summary.latestAccount) excluded.add(summaryInfo.summary.latestAccount);
+      if (summaryInfo.summary.yearlyTitle) excluded.add(summaryInfo.summary.yearlyTitle);
+      summaryInfo.summary.yearlyLines.forEach(line => excluded.add(line));
+
+      const headingIndexes = [];
+      lines.forEach((line, index) => {
+        const name = normalizeHeading(line);
+        if (name) {
+          headingIndexes.push({ index, name });
+        }
+      });
+
+      for (let i = 0; i < headingIndexes.length; i += 1) {
+        const current = headingIndexes[i];
+        const nextIndex = i + 1 < headingIndexes.length ? headingIndexes[i + 1].index : lines.length;
+        const body = [];
+        for (let j = current.index + 1; j < nextIndex; j += 1) {
+          const line = lines[j].trim();
+          if (!line || excluded.has(line)) continue;
+          body.push(line);
+        }
+        sections[current.name] = body;
+      }
+
+      return sections;
+    }
+
+    function buildParsedPayload(payload) {
+      const lines = splitLines(payload.text);
+      const summaryInfo = extractSummary(lines, payload);
+      const sections = parseSections(lines, summaryInfo);
+      return { lines, summaryInfo, sections };
+    }
+
+    function extractHeadlineValue(line) {
+      const index = String(line || "").indexOf(":");
+      return index >= 0 ? String(line).slice(index + 1).trim() : String(line || "-").trim() || "-";
+    }
+
+    function renderSummary(parsed, payload) {
+      const summary = parsed.summaryInfo.summary;
+      summaryLatestTradeEl.textContent = extractHeadlineValue(summary.latestTrade || "最新交易日: -");
+      summaryStatsEl.textContent = summary.stats || "暂无统计";
+      summaryAccountEl.textContent = summary.latestAccount || "暂无卖出账户收益";
+      badgesEl.innerHTML = [
+        summary.scoreFormula || "score公式: -",
+        `结果来源: ${resultSource(payload)}`,
+        `最后缓存时间: ${payload.cached_at || "-"}`
+      ].map(item => `<span class="badge">${escapeHtml(item)}</span>`).join("");
+    }
+
+    function renderEmptyGrid(message) {
+      gridEl.innerHTML = `
+        <section class="section wide">
+          <h3>提示</h3>
+          <div class="line">${escapeHtml(message)}</div>
+        </section>
+      `;
+    }
+
+    function renderSections(parsed) {
+      const linesBySection = {
+        summary: parsed.summaryInfo.resultLines,
+        buyPlan: parsed.sections.buyPlan || [],
+        holds: parsed.sections.holds || [],
+        pendingSells: parsed.sections.pendingSells || [],
+        ranking: parsed.sections.ranking || [],
+        hits: parsed.sections.hits || [],
+        sells: parsed.sections.sells || []
+      };
+
+      gridEl.innerHTML = SECTION_ORDER.map(name => {
+        const lines = linesBySection[name] || [];
+        const body = lines.length
+          ? lines.map(line => `<div class="line${name === "ranking" ? " mono" : ""}">${escapeHtml(line)}</div>`).join("")
+          : '<div class="empty">暂无</div>';
+        return `
+          <section class="section${WIDE_SECTIONS.has(name) ? " wide" : ""}">
+            <h3>${escapeHtml(SECTION_LABELS[name])}</h3>
+            ${body}
+          </section>
+        `;
+      }).join("");
+      panelNoteEl.textContent = "当前展示的是独立 V4 结果页，数据来源只对应 V4 后端接口。";
+    }
+
+    function parseLooseNumber(value) {
+      const cleaned = String(value || "").replace(/,/g, "").trim();
+      if (!cleaned) return NaN;
+      return Number(cleaned);
+    }
+
+    function roundToHundreds(value) {
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      return Math.max(0, Math.round(value / 100) * 100);
+    }
+
+    function formatShares(value) {
+      return Number(value || 0).toLocaleString("zh-CN");
+    }
+
+    function formatPrice(value, digits = 3) {
+      return Number(value).toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/, "$1");
+    }
+
+    function extractBuyPlanEntries(parsed) {
+      const lines = parsed.sections.buyPlan || [];
+      const entries = [];
+      for (const line of lines) {
+        if (!line || line.startsWith("卖出前持仓数:") || line === "无满足条件的ETF") {
+          continue;
+        }
+        const matched = line.match(/^(.+?)\((S[HZ]\d+)\).*?买入价:([0-9.]+)/);
+        if (!matched) continue;
+        entries.push({
+          name: matched[1],
+          code: matched[2],
+          buyPrice: Number(matched[3])
+        });
+      }
+      return entries;
+    }
+
+    function formatSplitInfo(item) {
+      if (!item || !item.has_recent_split) {
+        return "近期无拆分";
+      }
+      const ratio = item.split_ratio === null || item.split_ratio === undefined ? "-" : String(item.split_ratio);
+      return `近期拆分: ${item.split_date || "-"} ${item.split_type || ""} ${ratio}`.trim();
+    }
+
+    async function refreshRecentSplitMap(parsed) {
+      const entries = extractBuyPlanEntries(parsed);
+      const codes = Array.from(new Set(entries.map(item => item.code).filter(Boolean)));
+      const requestId = ++currentSplitRequestId;
+
+      if (!codes.length || !currentPassword.trim()) {
+        currentSplitMap = {};
+        if (parsed === currentParsed) {
+          renderSizingFromParsed(parsed);
+        }
+        return;
+      }
+
+      try {
+        const payload = await fetchJson(buildApiUrl("/api/fund/splits", {
+          codes: codes.join(","),
+          recent_days: 7
+        }));
+        if (requestId !== currentSplitRequestId) {
+          return;
+        }
+        currentSplitMap = payload.items || {};
+      } catch {
+        if (requestId !== currentSplitRequestId) {
+          return;
+        }
+        currentSplitMap = {};
+      }
+
+      if (parsed === currentParsed) {
+        renderSizingFromParsed(parsed);
+      }
+    }
+
+    function renderSizingFromParsed(parsed) {
+      if (!parsed) {
+        sizingListEl.innerHTML = '<div class="empty">请先获取策略结果。</div>';
+        return;
+      }
+
+      const amount = parseLooseNumber(capitalInput.value);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        sizingListEl.innerHTML = '<div class="empty">请输入当前金额后再确认。</div>';
+        return;
+      }
+
+      const entries = extractBuyPlanEntries(parsed);
+      if (!entries.length) {
+        sizingListEl.innerHTML = '<div class="empty">当前买入计划里没有可估算的信号。</div>';
+        return;
+      }
+
+      sizingListEl.innerHTML = entries.map(item => {
+        const shares = roundToHundreds(amount / item.buyPrice);
+        return `
+          <article class="sizing-item">
+            <div class="sizing-title">${escapeHtml(item.name)} (${escapeHtml(item.code)})</div>
+            <div class="sizing-meta">建议数量: ${escapeHtml(formatShares(shares))} 份</div>
+            <div class="sizing-meta">买入价: ${escapeHtml(formatPrice(item.buyPrice))}</div>
+            <div class="sizing-meta">${escapeHtml(formatSplitInfo(currentSplitMap[item.code]))}</div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function renderPayload(payload) {
+      currentPayload = payload;
+      currentParsed = buildParsedPayload(payload);
+      renderSummary(currentParsed, payload);
+      renderSections(currentParsed);
+      renderSizingFromParsed(currentParsed);
+      void refreshRecentSplitMap(currentParsed);
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(url, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+      }
+      return payload;
+    }
+
+    function buildApiUrl(path, params = {}) {
+      if (!currentPassword.trim()) {
+        throw new Error("请先输入口令");
+      }
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          searchParams.set(key, String(value));
+        }
+      });
+      searchParams.set("password", currentPassword.trim());
+      const fullPath = `${path}?${searchParams.toString()}`;
+      return baseUrl ? `${baseUrl}${fullPath}` : fullPath;
+    }
+
+    async function fetchLatestPayload(forceRefresh = true) {
+      const payload = await fetchJson(buildApiUrl("/api/v4", forceRefresh ? { refresh: "1" } : {}));
+      return saveStrategyCache(payload);
+    }
+
+    function isPasswordError(message) {
+      const text = String(message || "");
+      return text.includes("Unauthorized") || text.includes("password error");
+    }
+
+    function isFrontendCacheMissError(message) {
+      return String(message || "").includes("暂无前端缓存");
+    }
+
+    function handleStrategyError(error, statusPrefix = "请求失败", preserveCurrent = false) {
+      const message = error && error.message ? error.message : "请求失败";
+      if (isPasswordError(message)) {
+        currentPassword = "";
+        passwordModalInput.value = "";
+        clearCurrentPayload();
+        setAuthLocked(true, "口令错误，请重新输入。");
+      } else if (!isFrontendCacheMissError(message)) {
+        window.alert(`${statusPrefix}: ${message}`);
+      }
+      setStatus(`${statusPrefix}: ${message}`, true);
+      if (!preserveCurrent || !currentPayload) {
+        clearCurrentPayload();
+        summaryLatestTradeEl.textContent = "未加载";
+        summaryStatsEl.textContent = "未加载";
+        summaryAccountEl.textContent = "未加载";
+        badgesEl.innerHTML = "";
+        sizingListEl.innerHTML = '<div class="empty">请先获取策略结果。</div>';
+        renderEmptyGrid(message);
+      }
+    }
+
+    async function unlockPage() {
+      const password = passwordModalInput.value.trim();
+      if (!password) {
+        setAuthLocked(true, "请输入访问口令。");
+        return;
+      }
+      currentPassword = password;
+      clearCurrentPayload();
+      setAuthLocked(false);
+      try {
+        const cached = loadStrategyCache();
+        if (cached) {
+          setStatus(`完成 | V4 | ${resultSource(cached)} | ${cached.cached_at || "-"}`);
+          await renderPayload(cached);
+        } else {
+          setStatus("暂无前端缓存，请点击获取最新数据");
+          renderEmptyGrid("暂无前端缓存，请点击获取最新数据");
+        }
+      } catch (error) {
+        handleStrategyError(error, "读取失败");
+      }
+    }
+
+    async function refreshStrategy() {
+      try {
+        if (!currentPassword.trim()) {
+          throw new Error("请先输入口令");
+        }
+        setStatus("获取中: V4");
+        setLoading(true, "获取最新数据", "正在获取 V4 最新结果");
+        const payload = await fetchLatestPayload(true);
+        setStatus(`完成 | V4 | ${resultSource(payload)} | ${payload.cached_at || "-"}`);
+        await renderPayload(payload);
+      } catch (error) {
+        handleStrategyError(error, "获取失败", true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function confirmAmount() {
+      safeStorageSet(AMOUNT_STORAGE_KEY, capitalInput.value.trim());
+      renderSizingFromParsed(currentParsed);
+      if (!currentParsed) {
+        setStatus("请先获取策略结果");
+        return;
+      }
+      setStatus("金额已确认，可查看当前买入计划份数");
+    }
+
+    capitalInput.value = safeStorageGet(AMOUNT_STORAGE_KEY) || "";
+    renderEmptyGrid("请输入口令后读取前端缓存");
+    sizingListEl.innerHTML = '<div class="empty">请先获取策略结果。</div>';
+
+    passwordSubmitBtn.addEventListener("click", () => { void unlockPage(); });
+    passwordModalInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        void unlockPage();
+      }
+    });
+    btnRefresh.addEventListener("click", () => { void refreshStrategy(); });
+    amountConfirmBtn.addEventListener("click", confirmAmount);
+    capitalInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        confirmAmount();
+      }
+    });
+
+    setAuthLocked(true);
+  </script>
+</body>
+</html>
