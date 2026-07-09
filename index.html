@@ -1127,7 +1127,7 @@
       <div class="auth-title">输入访问口令</div>
       <div class="auth-copy">V4 前端请求主后端里的独立 V4 接口。输入口令后才能读取前端缓存或获取最新数据，口令只保存在当前页面内存里，不写入本地存储。</div>
       <div class="auth-form">
-        <input id="passwordModalInput" class="password-modal-input" type="password" inputmode="numeric" placeholder="输入访问口令" />
+        <input id="passwordModalInput" class="password-modal-input" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="输入访问口令" />
         <button id="passwordSubmitBtn" class="modal-btn" type="button">进入页面</button>
       </div>
       <div class="auth-error" id="authError"></div>
@@ -1138,7 +1138,6 @@
     const pageParams = new URLSearchParams(window.location.search);
     const MAIN_BACKEND_BASE_URL = "https://1258557411-28azoctxlh.ap-guangzhou.tencentscf.com";
     const DEFAULT_BASE_URL = pageParams.get("apiBase") || MAIN_BACKEND_BASE_URL;
-    const DEFAULT_PASSWORD = "444";
     const baseUrl = DEFAULT_BASE_URL.replace(/\/+$/, "");
 
     const statusEl = document.getElementById("status");
@@ -2173,7 +2172,7 @@
       const message = error && error.message ? error.message : "请求失败";
       if (isPasswordError(message)) {
         currentPassword = "";
-        passwordModalInput.value = DEFAULT_PASSWORD;
+        passwordModalInput.value = "";
         clearCurrentPayload();
         resetView("口令错误，请重新输入。");
         setAuthLocked(true, "口令错误，请重新输入。");
@@ -2352,8 +2351,6 @@
     }, true);
 
     capitalInput.value = safeStorageGet(AMOUNT_STORAGE_KEY) || "";
-    passwordModalInput.value = DEFAULT_PASSWORD;
-
     passwordSubmitBtn.addEventListener("click", () => { void unlockPage(); });
     passwordModalInput.addEventListener("keydown", event => {
       if (event.key === "Enter") {
