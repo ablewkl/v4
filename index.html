@@ -2140,12 +2140,28 @@
     }
 
     async function fetchLatestPayload(forceRefresh = true) {
-      const payload = await fetchJson(buildApiUrl("/api/v4", forceRefresh ? { refresh: "1" } : {}));
-      return saveStrategyCache(payload);
+      try {
+        const payload = await fetchJson(buildApiUrl("/api/v4", forceRefresh ? { refresh: "1" } : {}));
+        return saveStrategyCache(payload);
+      } catch (error) {
+        throw normalizeV4RouteError(error);
+      }
     }
 
     async function verifyV4Access() {
-      await fetchJson(buildApiUrl("/api/v4/cache"));
+      try {
+        await fetchJson(buildApiUrl("/api/v4/auth/check"));
+      } catch (error) {
+        throw normalizeV4RouteError(error);
+      }
+    }
+
+    function normalizeV4RouteError(error) {
+      const message = error && error.message ? error.message : "";
+      if (message.includes("HTTP 404")) {
+        return new Error("当前主后端还没部署 V4 接口，请先把 scf_bundle.updated-merged.zip 上传到云函数");
+      }
+      return error;
     }
 
     function isPasswordError(message) {
