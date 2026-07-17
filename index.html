@@ -2042,7 +2042,7 @@
 
       rankingDialogNoteEl.textContent = `${extractHeadlineValue(summary.latestTrade || "最新交易日: -")} | V4 最新 score 排行。`;
       rankingFormulaEl.textContent = summary.scoreFormula || `score公式: ${defaultScoreFormula()}`;
-      rankingHintEl.textContent = "V4 原始结果没有像 V7/V8 一样单独给出完整条件编号，前端会根据最新买入计划、排名位置和 time60 做观察性还原。";
+      rankingHintEl.textContent = "";
       renderRankingTable(parsed.rankRows);
 
       tradeDialogNoteEl.textContent = "V4 最近交易明细。未实际卖出的记录，卖出日期、卖出价格、收益、账户收益都会显示为 -。";
