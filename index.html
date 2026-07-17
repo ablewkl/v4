@@ -328,6 +328,18 @@
       cursor: default;
     }
 
+    .flag-chip.ok {
+      background: var(--ok-soft);
+      color: var(--ok);
+      border-color: rgba(21, 128, 61, 0.16);
+    }
+
+    .flag-chip.bad {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: rgba(194, 65, 12, 0.16);
+    }
+
     .result-chip.ok {
       background: var(--ok-soft);
       color: var(--ok);
@@ -864,7 +876,7 @@
     <section class="hero">
       <div class="hero-copy">
         <div class="hero-kicker">ETF Rotation Console</div>
-        <h1>V4 ETF 策略面板</h1>
+        <h1>ETF 策略面板</h1>
         <p id="heroSummary">最新交易日: -&nbsp;&nbsp;结果来源: - | <span class="cache-highlight">最后缓存时间: -</span></p>
       </div>
       <div class="hero-copy">
@@ -889,7 +901,7 @@
             <div class="tile-top">
               <div>
                 <div class="tile-title">最新操作</div>
-                <div class="tile-copy">金额输入、确认金额、信号购买数量、买入计划、待开盘卖出持仓、当前持仓都放到这里。</div>
+                <div class="tile-copy">金额输入、确认金额、信号购买数量、买入计划、卖出计划、当前持仓都放到这里。</div>
               </div>
               <div class="tile-arrow" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -913,7 +925,7 @@
             <div class="tile-top">
               <div>
                 <div class="tile-title">最新排名</div>
-                <div class="tile-copy">查看最新交易日 score 排行，保留 short、long、last1、time60 和日内观察，方便和主前端同样方式查看。</div>
+                <div class="tile-copy">查看最新交易日 score 排行、买入条件、过滤条件和最终通过结果。</div>
               </div>
               <div class="tile-arrow" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -980,18 +992,19 @@
       <div class="dialog-head">
         <div>
           <h3>今日操作 / 最新操作</h3>
-          <p id="operationDialogNote">金额试算、信号购买数量、买入计划、待开盘卖出持仓、当前持仓。</p>
+          <p id="operationDialogNote">金额试算、信号购买数量、买入计划、卖出计划、当前持仓。</p>
         </div>
         <button class="dialog-close" data-close-dialog="operationDialog" type="button">×</button>
       </div>
       <div class="dialog-body">
         <section class="dialog-section wide">
           <h4>金额试算</h4>
-          <p class="section-note">输入当前金额后，按最新买入计划估算每个信号的购买数量，并补充最近拆分提示。</p>
+          <p class="section-note">输入当前金额后，按最新买入计划估算每个信号的购买数量。</p>
           <div class="capital-row">
             <input id="capitalInput" class="capital" type="text" inputmode="decimal" placeholder="当前金额，例如 20000" />
             <button id="amountConfirmBtn" class="dialog-btn" type="button">确认金额</button>
           </div>
+          <div id="sizingCompound" class="sizing-metrics"></div>
           <div id="sizingList" class="card-list"></div>
         </section>
 
@@ -1002,7 +1015,7 @@
           </section>
 
           <section class="dialog-section wide">
-            <h4>待开盘卖出</h4>
+            <h4>卖出计划</h4>
             <div id="sellPlanList" class="card-list"></div>
           </section>
 
@@ -1039,9 +1052,8 @@
                   <th>Score</th>
                   <th>10chg</th>
                   <th>50chg</th>
-                  <th>last1chg</th>
-                  <th>60chg</th>
-                  <th>观察</th>
+                  <th>买入条件</th>
+                  <th>过滤</th>
                   <th>结果</th>
                 </tr>
               </thead>
@@ -1163,6 +1175,7 @@
     const capitalInput = document.getElementById("capitalInput");
     const amountConfirmBtn = document.getElementById("amountConfirmBtn");
     const sizingListEl = document.getElementById("sizingList");
+    const sizingCompoundEl = document.getElementById("sizingCompound");
     const buyPlanListEl = document.getElementById("buyPlanList");
     const holdListEl = document.getElementById("holdList");
     const sellPlanListEl = document.getElementById("sellPlanList");
@@ -1533,6 +1546,16 @@
       return { value: Number(matched[1]), date: matched[2] };
     }
 
+    function parseLatestCompoundMultiplier(line) {
+      const matched = String(line || "").match(/复利倍数[:：]?([0-9.]+)倍/);
+      return matched ? Number(matched[1]) : NaN;
+    }
+
+    function formatCompoundMultiplier(line) {
+      const value = parseLatestCompoundMultiplier(line);
+      return Number.isFinite(value) ? `${formatNumber(value, 4)}倍` : "无";
+    }
+
     function renderTooltipChip(label, reason, className = "flag-chip") {
       if (!reason) {
         return `<span class="${className}">${escapeHtml(label)}</span>`;
@@ -1542,9 +1565,16 @@
 
     function renderFlagList(items) {
       if (!items || !items.length) {
-        return '<span class="flag-chip empty">-</span>';
+        return '<span class="flag-chip empty">无</span>';
       }
       return items.map(item => renderTooltipChip(item.label, item.reason)).join("");
+    }
+
+    function renderConditionList(items) {
+      if (!items || !items.length) {
+        return '<span class="flag-chip empty">无</span>';
+      }
+      return items.map(item => renderTooltipChip(item.label, item.reason, item.passed ? "flag-chip ok" : "flag-chip bad")).join("");
     }
 
     function renderEmptyState(message) {
@@ -1613,7 +1643,7 @@
         if (!line || line === "无" || line.startsWith("卖出前持仓数:")) {
           continue;
         }
-        const matched = line.match(/^(.+?)\((S[HZ]\d+)\).*?买入价:([0-9.]+)/);
+        const matched = line.match(/^(.+?)\((S[HZ]\d+)\).*?(?:买入价|挂单价):([0-9.]+)/);
         if (!matched) continue;
         entries.push({
           name: matched[1],
@@ -1631,7 +1661,7 @@
       (lines || []).forEach(line => {
         const matched = String(line || "").match(/^(.+?)\((S[HZ]\d+)\)/);
         if (!matched) return;
-        if (line.includes("买入价:")) {
+        if (/(?:买入价|挂单价):/.test(line)) {
           selectedCodes.add(matched[2]);
         } else {
           notedCodes.add(matched[2]);
@@ -1661,40 +1691,19 @@
         const close = Number(matched[10]);
         const percent = Number(matched[11]);
 
-        const observations = [];
-        if (rank <= 4) {
-          observations.push({ label: "前4", reason: "V4 只会优先从最新排名前 4 里寻找候选。" });
-        }
-        if (Number.isFinite(time60) && time60 >= -0.028723) {
-          observations.push({ label: "60日", reason: "time60 达到 V4 的基础阈值要求。" });
-        }
-        if (open > close) {
-          observations.push({ label: "阴线", reason: "当日开盘价高于收盘价，满足 V4 常见日内形态分支。" });
-        }
-        if (percent < 0) {
-          observations.push({ label: "收跌", reason: "当日涨跌幅为负，通常更接近 V4 的回撤买入形态。" });
-        }
-
-        let pass = false;
-        let resultLabel = "观察";
-        let resultReason = "未进入最新买入计划。";
-
-        if (buyState.selectedCodes.has(code)) {
-          pass = true;
-          resultLabel = "已入计划";
-          resultReason = "该 ETF 已进入最新 V4 买入计划。";
-        } else if (buyState.notedCodes.has(code)) {
-          resultLabel = "有备注";
-          resultReason = "该 ETF 在买入计划区有备注，通常表示满足了部分条件，但买入价待定或受仓位限制。";
-        } else if (rank > 4) {
-          resultReason = "未进入 V4 前 4 候选。";
-        } else if (!(Number.isFinite(time60) && time60 >= -0.028723)) {
-          resultReason = "60 日涨幅未达到 V4 的基础阈值。";
-        } else if (!(open > close)) {
-          resultReason = "原始排名行只返回 open/close/percent，没有 high/low，前端无法完整还原上影线分支，只能按阴线特征做近似观察。";
-        } else {
-          resultReason = "满足基础观察条件，但最终没有出现在最新买入计划里。";
-        }
+        const conditions = [
+          { label: "前4", reason: "V4 只从最新 score 排名前 4 的 ETF 中选择候选。", passed: rank <= 4 },
+          { label: "60日", reason: "time60 达到 V4 基础阈值。", passed: Number.isFinite(time60) && time60 >= -0.028723 },
+          { label: "阴线", reason: "当日开盘价高于收盘价。", passed: open > close },
+          { label: "收跌", reason: "当日涨跌幅为负。", passed: percent < 0 }
+        ];
+        const filters = [];
+        const pass = buyState.selectedCodes.has(code);
+        const note = pass
+          ? "已进入 V4 最新买入计划。"
+          : buyState.notedCodes.has(code)
+            ? "该 ETF 在买入计划区有备注，通常表示满足了部分条件，但买入价待定或受仓位限制。"
+            : "未进入 V4 最新买入计划。";
 
         rows.push({
           rank,
@@ -1706,10 +1715,10 @@
           last1,
           time60,
           percent,
-          observations,
+          conditions,
+          filters,
           pass,
-          resultLabel,
-          resultReason
+          note
         });
       }
 
@@ -1844,7 +1853,7 @@
 
     function renderRankingTable(rows) {
       if (!rows.length) {
-        rankingTableBodyEl.innerHTML = `<tr><td colspan="9">${renderEmptyState("暂无排名数据")}</td></tr>`;
+        rankingTableBodyEl.innerHTML = `<tr><td colspan="8">${renderEmptyState("暂无排行数据")}</td></tr>`;
         return;
       }
 
@@ -1858,12 +1867,11 @@
           <td class="mono">${escapeHtml(formatNumber(row.score, 4))}</td>
           <td class="mono">${escapeHtml(formatNumber(row.chg10, 4))}</td>
           <td class="mono">${escapeHtml(formatNumber(row.chg50, 4))}</td>
-          <td class="mono">${escapeHtml(formatNumber(row.last1, 4))}</td>
-          <td class="mono">${escapeHtml(formatNumber(row.time60, 4))}</td>
-          <td>${renderFlagList(row.observations)}</td>
+          <td>${renderConditionList(row.conditions)}</td>
+          <td>${renderFlagList(row.filters)}</td>
           <td>${row.pass
-            ? '<span class="result-chip ok">通过</span>'
-            : renderTooltipChip(row.resultLabel, row.resultReason, "result-chip bad")}</td>
+            ? '<span class="result-chip ok">√</span>'
+            : renderTooltipChip("×", row.note || "买入条件不完整或存在过滤条件", "result-chip bad")}</td>
         </tr>
       `).join("");
     }
@@ -1940,12 +1948,11 @@
       panelNoteEl.textContent = "点击按钮查看对应对话框。";
     }
 
-    function formatSplitInfo(item) {
-      if (!item || !item.has_recent_split) {
-        return "近期无拆分";
+    function formatRecentSplitDate(item) {
+      if (!item || !item.has_recent_split || !item.split_date) {
+        return "无";
       }
-      const ratio = item.split_ratio === null || item.split_ratio === undefined ? "-" : String(item.split_ratio);
-      return `近期拆分: ${item.split_date || "-"} ${item.split_type || ""} ${ratio}`.trim();
+      return String(item.split_date).trim() || "无";
     }
 
     async function refreshRecentSplitMap(parsed) {
@@ -1984,9 +1991,13 @@
 
     function renderSizingFromParsed(parsed) {
       if (!parsed) {
+        sizingCompoundEl.innerHTML = "";
         sizingListEl.innerHTML = renderEmptyState("请先获取策略结果。");
         return;
       }
+
+      const compoundMultiplier = formatCompoundMultiplier(parsed.summaryInfo?.summary?.latestAccount);
+      sizingCompoundEl.innerHTML = `<span class="sizing-metric"><span>复利倍数</span><strong>${escapeHtml(compoundMultiplier)}</strong></span>`;
 
       const amount = parseLooseNumber(capitalInput.value);
       if (!Number.isFinite(amount) || amount <= 0) {
@@ -2007,8 +2018,9 @@
               <div class="record-title">${escapeHtml(item.name)} (${escapeHtml(item.code)})</div>
               <div class="sizing-metrics">
                 <span class="sizing-metric"><span>建议数量</span><strong>${escapeHtml(formatShares(shares))} 份</strong></span>
-                <span class="sizing-metric"><span>买入价</span><strong>${escapeHtml(formatNumber(item.buyPrice, 3))}</strong></span>
-                <span class="sizing-metric"><span>最近拆分</span><strong>${escapeHtml(formatSplitInfo(currentSplitMap[item.code]))}</strong></span>
+                <span class="sizing-metric"><span>挂单价</span><strong>${escapeHtml(formatNumber(item.buyPrice, 3))}</strong></span>
+                <span class="sizing-metric"><span>复利倍数</span><strong>${escapeHtml(compoundMultiplier)}</strong></span>
+                <span class="sizing-metric"><span>最近拆分日期</span><strong>${escapeHtml(formatRecentSplitDate(currentSplitMap[item.code]))}</strong></span>
               </div>
             </div>
           </article>
@@ -2022,10 +2034,10 @@
       const holdCount = countMeaningfulLines(parsed.holds);
       const pendingCount = countMeaningfulLines(parsed.pendingSells);
 
-      operationDialogNoteEl.textContent = `买入计划:${buyCount}，当前持仓:${holdCount}，待开盘卖出:${pendingCount}`;
+      operationDialogNoteEl.textContent = `买入计划:${buyCount || "无"}，当前持仓:${holdCount || "无"}，卖出计划:${pendingCount || "无"}`;
       buyPlanListEl.innerHTML = renderRecordCards(filterMeaningfulLines(parsed.buyPlans, { skipPrefix: "卖出前持仓数:" }), "暂无买入计划");
       holdListEl.innerHTML = renderRecordCards(parsed.holds, "暂无当前持仓");
-      sellPlanListEl.innerHTML = renderRecordCards(parsed.pendingSells, "暂无待开盘卖出持仓");
+      sellPlanListEl.innerHTML = renderRecordCards(parsed.pendingSells, "暂无卖出计划");
       renderSizingFromParsed(parsed);
 
       rankingDialogNoteEl.textContent = `${extractHeadlineValue(summary.latestTrade || "最新交易日: -")} | V4 最新 score 排行。`;
@@ -2095,7 +2107,7 @@
       sellPlanListEl.innerHTML = renderEmptyState("暂无待开盘卖出持仓");
       rankingFormulaEl.textContent = "score公式: -";
       rankingHintEl.textContent = "-";
-      rankingTableBodyEl.innerHTML = `<tr><td colspan="9">${renderEmptyState("暂无排名数据")}</td></tr>`;
+      rankingTableBodyEl.innerHTML = `<tr><td colspan="8">${renderEmptyState("暂无排行数据")}</td></tr>`;
       tradeHintEl.textContent = "-";
       tradeTableBodyEl.innerHTML = `<tr><td colspan="9">${renderEmptyState("暂无最近交易数据")}</td></tr>`;
       profitCardsEl.innerHTML = renderEmptyState("暂无收益数据");
