@@ -2024,7 +2024,7 @@
       let cumulative = 0;
       currentReturnChartPoints = dates.length ? [{ date: dates[0], value: 0 }] : [];
       dates.forEach(date => {
-        cumulative = ((1 + cumulative / 100) * (1 + grouped.get(date) / 100) - 1) * 100;
+        cumulative += grouped.get(date);
         currentReturnChartPoints.push({ date, value: cumulative });
       });
 
